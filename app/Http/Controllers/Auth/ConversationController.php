@@ -100,82 +100,61 @@ class ConversationController extends Controller
     public function recentMessage(){
 
 
-        // $lastConversations = Conversation::with(['lastMessage',])
-        //     ->where(function ($query) {
-        //         $query->where('sender_id', auth()->user()->id)
-        //             ->where(function ($query) {
-        //                 $query->whereNull('deleted_by_user_id')
-        //                     ->orWhere('deleted_by_user_id', '!=', auth()->user()->id);
-        //             });
-        //     })
-        //     ->orWhere(function ($query) {
-        //         $query->where('recipent_id', auth()->user()->id)
-        //             ->where(function ($query) {
-        //                 $query->whereNull('deleted_by_user_id')
-        //                     ->orWhere('deleted_by_user_id', '!=', auth()->user()->id);
-        //             });
-        //     })
-        //     ->where(function ($query) {
-        //         $query->where('has_multiple_conversation', false);
-        //             // ->orWhereNull('has_multiple_conversation');
-        //     })
-        //     ->get();
 
-        // foreach ($latestConversations as $conversation) {
-        //     // Check if the conversation is deleted by the user
-        //     $isDeletedByUser = $conversation->deleted_by_user_id == auth()->user()->id;
+//        $latestConversations = Conversation::where(function ($query) {
+//            $query->where('sender_id', auth()->user()->id)
+//                ->orWhere('recipent_id', auth()->user()->id);
+//        })
+//        ->with('lastMessage')
+//        ->orderByDesc('last_time_message')
+//        ->latest()
+//        ->get();
+//
+//        $filteredConversations = [];
+//
+//        $friendIds = [];
+//        foreach ($latestConversations as $conversation) {
+//            $friendId = ($conversation->sender_id == auth()->user()->id) ? $conversation->recipent_id : $conversation->sender_id;
+//
+//            // Case 1: Check if the conversation is deleted by the user, don't show to the current user
+//            if ($conversation->deleted_by_user_id == auth()->user()->id) {
+//                continue;
+//            }
+//
+//            // Case 2: If there are multiple conversations, don't show the last message to anyone
+//            if ($conversation->has_multiple_conversation) {
+//                continue;
+//            }
+//
+//            // Case 3: Only show the last message if it's not deleted by the current user and no multiple conversation is true
+//            if ($conversation->lastMessage && !$conversation->lastMessage->is_deleted && !$conversation->has_multiple_conversation) {
+//                $filteredConversations[] = $conversation;
+//                $friendIds[] = $friendId;
+//            }
+//        }
+//
+//        return $filteredConversations;
 
-        //     if ($conversation->has_multiple_conversation) {
-        //         // If there are multiple conversations, show the last message of this conversation
-        //         // regardless of deletion by the user
-        //         $filteredConversations[] = $conversation;
-        //     } else {
-        //         // If there's only one conversation, show the last message only if it's not deleted by the user
-        //         if (!$isDeletedByUser) {
-        //             $filteredConversations[] = $conversation;
-        //         }
-        //     }
-        // }
+        $latestConversations = Conversation::visibleToUser(auth()->id())
+            ->with('lastMessage', 'sender', 'recipent')
+            ->get();
 
-        $latestConversations = Conversation::where(function ($query) {
-            $query->where('sender_id', auth()->user()->id)
-                ->orWhere('recipent_id', auth()->user()->id);
-        })
-        ->with('lastMessage')
-        ->orderByDesc('last_time_message')
-        ->latest()
-        ->get();
-
-        $filteredConversations = [];
-
-        $friendIds = [];
-        foreach ($latestConversations as $conversation) {
-            $friendId = ($conversation->sender_id == auth()->user()->id) ? $conversation->recipent_id : $conversation->sender_id;
-
+        $filteredConversations = $latestConversations->filter(function ($conversation) {
             // Case 1: Check if the conversation is deleted by the user, don't show to the current user
-            if ($conversation->deleted_by_user_id == auth()->user()->id) {
-                continue;
+            if ($conversation->isDeletedByUser(auth()->id())) {
+                return false;
             }
 
             // Case 2: If there are multiple conversations, don't show the last message to anyone
             if ($conversation->has_multiple_conversation) {
-                continue;
+                return false;
             }
 
             // Case 3: Only show the last message if it's not deleted by the current user and no multiple conversation is true
-            if ($conversation->lastMessage && !$conversation->lastMessage->is_deleted && !$conversation->has_multiple_conversation) {
-                $filteredConversations[] = $conversation;
-                $friendIds[] = $friendId;
-            }
-        }
+            return $conversation->lastMessage && !$conversation->lastMessage->is_deleted && !$conversation->has_multiple_conversation;
+        });
 
         // Now $filteredConversations will contain the appropriate conversations to display
-
-        // dd($filteredConversations);
-
-
-        // return $lastConversations;
-        // return $latestConversations;
         return $filteredConversations;
     }
 

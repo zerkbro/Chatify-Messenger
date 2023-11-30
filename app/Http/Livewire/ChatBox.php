@@ -72,51 +72,76 @@ class ChatBox extends Component
         // dd(session('selected_friend_id'));
         $userId = auth()->user()->id;
         $frnId = $this->selectedFriendId;
+        /**
+         * Test Code For Optimizing the query.
+         */
+        $this->conversation = Conversation::withFriend($frnId)
+            ->visibleToUser($userId)
+            ->with(['messages' => function ($query){
+                $query->notSeenReceived();
+            }])
+            ->get();
+        // load conversation with map messages
+        $this->conversation = $this->conversation->map(function ($conversation) {
+            return $conversation->load('messages');
+        });
+        $unreadCount = $this->conversation->isNotEmpty() ? $this->conversation->sum('unread_messages_count') : 0;
+
+//        foreach ($test as $conversation) {
+//            // Access the messages property on each conversation model
+//            $messages = $conversation->messages;
+//            dump($messages);
+//        }
+
+        /**
+         * Test code ends here.
+         */
+
 
         /** @var \App\Models\User $user */
 
-        $user = auth()->user();
-        $frn = User::find($frnId);
+//        $user = auth()->user();
+//        $frn = User::find($frnId);
+//
+//        if($frn){
+//            //  conversations() is from user model relationship
+//            $unreadCount = $user->conversations()
+//                ->where(function ($query) use ($frnId) {
+//                    $query->where('sender_id', auth()->user()->id)
+//                        ->where('recipent_id', $frnId);
+//                })
+//                ->orWhere(function ($query) use ($frnId) {
+//                    $query->where('sender_id', $frnId)
+//                        ->where('recipent_id', auth()->user()->id);
+//                })
+//                ->first();
+//                // ->unreadMessagesCountWithFriend($frnId);
+//            if($unreadCount!=null){
+//                $unreadCount = $unreadCount->unreadMessagesCountWithFriend($frnId);
+//            }
+//        }else{
+//            $unreadCount = 0;
+//        }
 
-        if($frn){
-            //  conversations() is from user model relationship
-            $unreadCount = $user->conversations()
-                ->where(function ($query) use ($frnId) {
-                    $query->where('sender_id', auth()->user()->id)
-                        ->where('recipent_id', $frnId);
-                })
-                ->orWhere(function ($query) use ($frnId) {
-                    $query->where('sender_id', $frnId)
-                        ->where('recipent_id', auth()->user()->id);
-                })
-                ->first();
-                // ->unreadMessagesCountWithFriend($frnId);
-            if($unreadCount!=null){
-                $unreadCount = $unreadCount->unreadMessagesCountWithFriend($frnId);
-            }
-        }else{
-            $unreadCount = 0;
-        }
-
-        // dd($unreadCount);
-
-        // From Conversation Model we are getting the all old conversation bettween our friend.
-        $conversation = new Conversation();
-        $existingConversation = $conversation->getExistingConversationWith($frnId);
-
-
-        // dd($existingConversation);
-
-
-        // If there's no existing conversation, create a new one
-        if ($existingConversation === null) {
-            $this->conversation = null;
-        } else {
-            // Load messages for each conversation
-            $this->conversation = $existingConversation->map(function ($conversation) {
-                return $conversation->load('messages');
-            });
-        }
+//        // dd($unreadCount);
+//
+//        // From Conversation Model we are getting the all old conversation bettween our friend.
+//        $conversation = new Conversation();
+//        $existingConversation = $conversation->getExistingConversationWith($frnId);
+//
+//
+//        // dd($existingConversation);
+//
+//
+//        // If there's no existing conversation, create a new one
+//        if ($existingConversation === null) {
+//            $this->conversation = null;
+//        } else {
+//            // Load messages for each conversation
+//            $this->conversation = $existingConversation->map(function ($conversation) {
+//                return $conversation->load('messages');
+//            });
+//        }
 
         return view('livewire.chat-box', [
             'conversation' => $this->conversation,

@@ -60,79 +60,59 @@
                             <div class="chat-history chat-msg-box custom-scrollbar chatbox_body" style="height: 65vh;"
                                 id="chat-history">
                                 <ul id="message-list">
-                                    @if (count($conversation) > 0)
+                                    @if ($conversation->isNotEmpty())
                                         {{-- counting how many conversations does a user have --}}
                                         @foreach ($conversation as $conv)
                                             {{-- Load More Message Button --}}
                                             @if ($conv->messages->count() > $messagesPerPage)
                                                 <div class="d-flex justify-content-center align-self-center mb-2">
-
-                                                    <button class="btn btn-light text-secondary rounded-pill"
-                                                        wire:click="loadMoreMessages"><i
-                                                            class="fa-solid fa-arrow-down-long"></i> Load More</button>
+                                                    <button class="btn btn-light text-secondary rounded-pill" wire:click="loadMoreMessages">
+                                                        <i class="fa-solid fa-arrow-down-long"></i> Load More
+                                                    </button>
                                                 </div>
                                             @endif
-                                            {{-- @foreach ($conv->messages as $message) --}}
-                                            @foreach ($conv->messages->take(-$messagesPerPage) as $message)
-                                                {{-- @foreach ($conv->messages->slice(-($currentPage * $messagesPerPage - $loadOffset), $messagesPerPage) as $message) --}}
-                                                <li
-                                                    class="{{ $message->user_id === auth()->user()->id ? 'clearfix' : '' }}">
 
-                                                    <div
-                                                        class="message
-                                                        {{-- we are changing the unread message color --}}
-                                                        @if ($message->sender->id != auth()->user()->id && $message->getUnreadMessageIdAttribute() != null) bg-light @endif
-                                                         {{ $message->user_id === auth()->user()->id ? 'other-message pull-right float-end border-success' : 'my-message border-secondary shadow' }}">
+                                            @foreach ($conv->messages as $message)
+                                                <li class="{{ $message->user_id === auth()->user()->id ? 'clearfix' : '' }}">
+                                                    <div class="message
+                                                    @if ($message->sender->id != auth()->user()->id && $message->getUnreadMessageIdAttribute() != null) bg-light @endif
+                                                    {{ $message->user_id === auth()->user()->id ? 'other-message pull-right float-end border-success' : 'my-message border-secondary shadow' }}">
 
-                                                        <div
-                                                            class="message-data {{ $message->user_id === auth()->user()->id ? '' : 'text-end' }}">
-                                                            <span
-                                                                class="f-12 text-muted"><i class="fa-regular fa-clock"></i> {{ $message->created_at->diffForHumans() }}</span>
+                                                        <div class="message-data {{ $message->user_id === auth()->user()->id ? '' : 'text-end' }}">
+                                                            <span class="f-12 text-muted"><i class="fa-regular fa-clock"></i> {{ $message->created_at->diffForHumans() }}</span>
                                                         </div>
 
-
-
-                                                        {{-- Display single tick if message is sent by this user --}}
                                                         @if ($message->sender->id === auth()->user()->id)
-
-                                                                    {{-- This section is if the message sender is current user ( Right Side Message ) --}}
-
                                                             @if ($message->is_seen)
                                                                 @if($message->attachment_type != null)
-                                                                    {{-- If the message has attachment & is seen by the reciever user --}}
+                                                                    {{-- Attachment seen by the receiver --}}
                                                                     <div class="text-center">
                                                                         <a href="{{ asset('storage/chatify/attachment/' . $message->attachment_filename) }}">
                                                                             <img src="{{ asset('storage/chatify/attachment/' . $message->attachment_filename) }}" class="rounded" alt="..." height="400px" width="400px">
                                                                         </a>
                                                                     </div>
-                                                                    <img class="rounded-circle f-right img-20"
-                                                                         src="/storage/{{ $friend->profile_image_path }}"
-                                                                         {{-- seen status --}} alt="">
+                                                                    <img class="rounded-circle f-right img-20" src="/storage/{{ $friend->profile_image_path }}" alt="">
                                                                 @else
-                                                                    {{--  No attachment in the message & is seen by the reciever user --}}
-                                                                    {{ $message->content }} {{-- Single message --}}
-                                                                    <img class="rounded-circle f-right img-20"
-                                                                         src="/storage/{{ $friend->profile_image_path }}"
-                                                                         {{-- seen status --}} alt="">
+                                                                    {{-- No attachment, message seen by the receiver --}}
+                                                                    {{ $message->content }}
+                                                                    <img class="rounded-circle f-right img-20" src="/storage/{{ $friend->profile_image_path }}" alt="">
                                                                 @endif
                                                             @else
-                                                                {{-- If the message has attachment & is not seen by the reciever user --}}
+                                                                {{-- Attachment not seen by the receiver --}}
                                                                 @if($message->attachment_type != null)
                                                                     <div class="text-center">
                                                                         <a href="{{ asset('storage/chatify/attachment/' . $message->attachment_filename) }}">
                                                                             <img src="{{ asset('storage/chatify/attachment/' . $message->attachment_filename) }}" class="rounded" alt="..." height="400px" width="400px">
                                                                         </a>
                                                                     </div>
-                                                                    <span class="f-right"><i
-                                                                        class="fas fa-check"></i> sent</span>
+                                                                    <span class="f-right"><i class="fas fa-check"></i> sent</span>
                                                                 @else
-                                                                {{-- If the message doesnot has any attachment display the message content only --}}
-                                                                {{ $message->content }} <span class="f-right"><i
-                                                                        class="fas fa-check"></i> sent</span>
+                                                                    {{-- No attachment, message not seen by the receiver --}}
+                                                                    {{ $message->content }} <span class="f-right"><i class="fas fa-check"></i> sent</span>
                                                                 @endif
                                                             @endif
                                                         @else
-                                                                    {{-- This section is the reciever section (Left side message) --}}
+                                                            {{-- Receiver section (Left side message) --}}
                                                             @if($message->attachment_type != null)
                                                                 <div class="text-center">
                                                                     <a href="{{ asset('storage/chatify/attachment/' . $message->attachment_filename) }}">
@@ -140,11 +120,10 @@
                                                                     </a>
                                                                 </div>
                                                             @else
-                                                            <span class="f-14">{{ $message->content }}</span>
+                                                                <span class="f-14">{{ $message->content }}</span>
                                                             @endif
                                                         @endif
                                                     </div>
-
                                                 </li>
                                             @endforeach
                                         @endforeach
