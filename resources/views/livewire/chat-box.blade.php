@@ -140,9 +140,8 @@
                             <div class="chat-message">
                                 <div class="row">
                                     <div class="col-xl-12 d-flex">
-
                                         <div class="smiley-box d-flex"
-                                             class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#staticBackdrop"
+                                             data-bs-toggle="modal" data-bs-target="#staticBackdrop"
                                              type="button">
                                             <div class="bg-light align-self-center ">
                                                 <i class="fa-solid fa-link fa-xl text-muted"></i>
@@ -163,9 +162,7 @@
                                         </form>
                                     </div>
                                 </div>
-                                <!-- Emoji Selector Script -->
-                                <!-- Vertically centered modal -->
-                                <!-- Modal -->
+                                <!-- This container is just for the demo of image upload using the third party image package -->
                                 <div class="modal fade " id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true" wire:ignore>
                                     <div class="modal-dialog modal-lg modal-dialog-centered">
                                         <div class="modal-content">
@@ -185,9 +182,6 @@
 {{--                   File pond Upload Section. Disable the above input file to use the below on--}}
                                                 <input type="file" wire:model="filepond" class="my-pond" name="filepond" />
 
-
-                                                <!-- This container is just for the demo -->
-
                                                 {{-- file upload from modal --}}
                                             </div>
                                             <div class="modal-footer">
@@ -198,7 +192,6 @@
                                         </div>
                                     </div>
                                 </div>
-
 
                                 {{--    <script src="https://unpkg.com/filepond/dist/filepond.min.js"></script> --}}
 
@@ -235,9 +228,6 @@
                                                 }
                                             },
                                         });
-
-
-
                                     });
                                 </script>
 
@@ -303,14 +293,12 @@
                         <div class="modal-footer">
                             <button class="btn btn-dark" type="button" data-bs-dismiss="modal"
                                 data-bs-original-title="" title="">Cancel</button>
-                            {{-- @if ($conversation) --}}
                             @if (isset($conv) && $conv)
                                 <button class="btn btn-danger" type="button" data-bs-original-title=""
                                     title=""
                                     wire:click="deleteConversation({{ $conv->id }}, {{ $friend->id }})">Yes</button>
                             @endif
-                            {{-- @endif --}}
-                            {{-- <dd>{{ $conv->id }}</dd> --}}
+
                         </div>
                     </div>
                 </div>
@@ -320,19 +308,7 @@
 
 
         @if (session()->has('selected_friend_id'))
-{{--            <script>--}}
-{{--                $(document).ready(function() {--}}
-{{--                    // This function scrolls the chat-history to the bottom--}}
-{{--                    function scrollToBottom() {--}}
-{{--                        var chatHistory = $('#chat-history');--}}
-{{--                        chatHistory.scrollTop(chatHistory[0].scrollHeight);--}}
-{{--                    }--}}
-
-{{--                    // Call the function to scroll to the bottom when the page loads or new messages are added--}}
-{{--                    scrollToBottom();--}}
-{{--                });--}}
-{{--            </script>--}}
-{{--        @else--}}
+            {{-- This script is used to scroll the chatbox to the bottom when the page loads or new messages are added --}}
             <div wire:ignore>
                 <script>
                     $(document).ready(function() {
@@ -424,11 +400,4 @@
         @endpush
     @endif
 
-{{--    @push('scripts')--}}
-{{--        <script>--}}
-{{--            window.addEventListener('rowChatToBottom', event => {--}}
-{{--                $('.chatbox_body').scrollTop($('.chatbox_body')[0].scrollHeight);--}}
-{{--            });--}}
-{{--        </script>--}}
-{{--    @endpush--}}
 </div>

@@ -227,6 +227,11 @@ class ChatBox extends Component
                 $this->dispatchBrowserEvent('rowChatToBottom');
                 $this->emit('refresh');
                 $this->refresh();
+                if($this->filepond != null){
+                    // if we have image attachment we are forcing to reload the whole page.
+                    $this->filepond = null;
+                    return redirect()->route('chat_body');
+                }
             } else {
 //                $oldConv = Conversation::where(function ($query) use ($frnId) {
 //                    $query->where('sender_id', auth()->user()->id)
@@ -277,13 +282,18 @@ class ChatBox extends Component
 
                 // Reset message input after sending
                 $this->messageContent = '';
-                $this->filepond = null;
+                //$this->filepond = null;
 
                 // Refresh the chat to display the sent message
 
                 $this->dispatchBrowserEvent('rowChatToBottom');
                 $this->emit('refresh');
                 $this->refresh();
+                if($this->filepond != null){
+                    // if we have image attachment we are forcing to reload the whole page.
+                    $this->filepond = null;
+                    return redirect()->route('chat_body');
+                }
             }
         } else {
             // No conversation or New conversation
@@ -299,7 +309,7 @@ class ChatBox extends Component
             Message::create([
                 'conversation_id' => $conversation->id,
                 'user_id' => auth()->user()->id,
-                'content' => $this->imageName != null ? 'sent an attachment' : $this->messageContent,
+                'content' => $this->imageName != null ? 'sent a photo' : $this->messageContent,
                 'is_seen' => false,  // Assuming the message is not seen yet
                 'attachment_type' => $this->imageName != null ? 'photo' : null,
                 'attachment_filename' => $this->imageName != null ? $this->imageName : null,
@@ -316,6 +326,10 @@ class ChatBox extends Component
             $this->dispatchBrowserEvent('rowChatToBottom');
             $this->emit('refresh');
             $this->refresh();
+            if($this->filepond != null){
+                $this->filepond = null;
+                return redirect()->route('chat_body');
+            }
         }
     }
 
@@ -409,6 +423,8 @@ class ChatBox extends Component
             // Now Deleting the Old Temporary files from the folder.
             Storage::deleteDirectory('public/chatify/tmp/' . $tmp_file->folder);
             $tmp_file->delete();
+            // Emit a browser event to notify the front end to close the modal
+            $this->dispatchBrowserEvent('closeModal');
 
             // Now sending the new message by adding this image as attachment.
             $this->sendMessage($frnId);
