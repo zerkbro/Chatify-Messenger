@@ -36,7 +36,7 @@ class AuthController extends Controller
             'first_name' => 'required|alpha',
             'last_name' => 'required|alpha',
             'email' => 'required|email|unique:users',
-            'password' => 'required|same:password_confirmation',
+            'password' => 'required|same:password_confirmation|min:8',
             'password_confirmation' => 'required|same:password'
         ])->validate();
 
@@ -90,24 +90,8 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-
-        // // Check user role and redirect accordingly
-        // $request->session()->regenerate();
-
-        // if ($user->hasRole('admin') || $user->hasRole('superadmin')) {
-        //     return redirect()->route('adminDashboard');
-        // }
-
-
         // Check user role and redirect accordingly
         $request->session()->regenerate();
-
-        // Also Checking Whether the account is deleted or not.
-        // if($user->account_status == false){
-        //     $disabled_user = $user;
-        //     return view('auth.frontend.user.account_deactive')->with('disabled_user', $disabled_user);
-        // }
-
 
         $adminOrSuperadmin = $user->roles->pluck('name')->intersect(['admin', 'superadmin'])->count() > 0;
         if ($adminOrSuperadmin) {
@@ -128,21 +112,21 @@ class AuthController extends Controller
         return view('auth.frontend.user.homepage');
     }
 
-
     // user self soft account deactivation
-
-    public function deactiveUser($userId){
+    public function deactiveUser($userId)
+    {
         $currentUserId = Auth::id();
         $user = User::findOrFail($userId);
-        if($currentUserId == $userId){
-            // the proceed delete
+        if ($currentUserId == $userId) {
+            // to proceed delete
             $user->account_inactive_reason = 'Self Deletion'; // self deleted
             $user->account_inactive_since = Carbon::now();
-            $user->account_status=false;
+            $user->account_status = false;
             $user->save();
-            // $user->delete();
-
+            // $user->delete();        }
+            return redirect()->back();
+        }else{
+            return redirect()->back()->with('error', 'You are not authorized to delete this account!');
         }
-        return redirect()->back();
     }
 }
