@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use App\Events\MessageSent;
@@ -72,51 +73,76 @@ class ChatBox extends Component
         // dd(session('selected_friend_id'));
         $userId = auth()->user()->id;
         $frnId = $this->selectedFriendId;
+        /**
+         * Test Code For Optimizing the query.
+         */
+        $this->conversation = Conversation::withFriend($frnId)
+            ->visibleToUser($userId)
+            ->with(['messages' => function ($query){
+                $query->notSeenReceived();
+            }])
+            ->get();
+        // load conversation with map messages
+        $this->conversation = $this->conversation->map(function ($conversation) {
+            return $conversation->load('messages');
+        });
+        $unreadCount = $this->conversation->isNotEmpty() ? $this->conversation->sum('unread_messages_count') : 0;
+
+//        foreach ($test as $conversation) {
+//            // Access the messages property on each conversation model
+//            $messages = $conversation->messages;
+//            dump($messages);
+//        }
+
+        /**
+         * Test code ends here.
+         */
+
 
         /** @var \App\Models\User $user */
 
-        $user = auth()->user();
-        $frn = User::find($frnId);
+//        $user = auth()->user();
+//        $frn = User::find($frnId);
+//
+//        if($frn){
+//            //  conversations() is from user model relationship
+//            $unreadCount = $user->conversations()
+//                ->where(function ($query) use ($frnId) {
+//                    $query->where('sender_id', auth()->user()->id)
+//                        ->where('recipent_id', $frnId);
+//                })
+//                ->orWhere(function ($query) use ($frnId) {
+//                    $query->where('sender_id', $frnId)
+//                        ->where('recipent_id', auth()->user()->id);
+//                })
+//                ->first();
+//                // ->unreadMessagesCountWithFriend($frnId);
+//            if($unreadCount!=null){
+//                $unreadCount = $unreadCount->unreadMessagesCountWithFriend($frnId);
+//            }
+//        }else{
+//            $unreadCount = 0;
+//        }
 
-        if($frn){
-            //  conversations() is from user model relationship
-            $unreadCount = $user->conversations()
-                ->where(function ($query) use ($frnId) {
-                    $query->where('sender_id', auth()->user()->id)
-                        ->where('recipent_id', $frnId);
-                })
-                ->orWhere(function ($query) use ($frnId) {
-                    $query->where('sender_id', $frnId)
-                        ->where('recipent_id', auth()->user()->id);
-                })
-                ->first();
-                // ->unreadMessagesCountWithFriend($frnId);
-            if($unreadCount!=null){
-                $unreadCount = $unreadCount->unreadMessagesCountWithFriend($frnId);
-            }
-        }else{
-            $unreadCount = 0;
-        }
-
-        // dd($unreadCount);
-
-        // From Conversation Model we are getting the all old conversation bettween our friend.
-        $conversation = new Conversation();
-        $existingConversation = $conversation->getExistingConversationWith($frnId);
-
-
-        // dd($existingConversation);
-
-
-        // If there's no existing conversation, create a new one
-        if ($existingConversation === null) {
-            $this->conversation = null;
-        } else {
-            // Load messages for each conversation
-            $this->conversation = $existingConversation->map(function ($conversation) {
-                return $conversation->load('messages');
-            });
-        }
+//        // dd($unreadCount);
+//
+//        // From Conversation Model we are getting the all old conversation bettween our friend.
+//        $conversation = new Conversation();
+//        $existingConversation = $conversation->getExistingConversationWith($frnId);
+//
+//
+//        // dd($existingConversation);
+//
+//
+//        // If there's no existing conversation, create a new one
+//        if ($existingConversation === null) {
+//            $this->conversation = null;
+//        } else {
+//            // Load messages for each conversation
+//            $this->conversation = $existingConversation->map(function ($conversation) {
+//                return $conversation->load('messages');
+//            });
+//        }
 
         return view('livewire.chat-box', [
             'conversation' => $this->conversation,
@@ -157,27 +183,31 @@ class ChatBox extends Component
         if ($conversationExists) {
             // Old conversation exists
 
-            $existingConversation = Conversation::where(function ($query) use ($frnId) {
-                $query->where('sender_id', auth()->user()->id)
-                    ->where('recipent_id', $frnId)
-                    ->where(function ($query) {
-                        $query->whereNull('deleted_by_user_id');
-                    });
-            })
-                ->orWhere(function ($query) use ($frnId) {
-                    $query->where('sender_id', $frnId)
-                        ->where('recipent_id', auth()->user()->id)
-                        ->where(function ($query) {
-                            $query->whereNull('deleted_by_user_id');
-                        });
-                })->first();
+//            $existingConversation = Conversation::where(function ($query) use ($frnId) {
+//                $query->where('sender_id', auth()->user()->id)
+//                    ->where('recipent_id', $frnId)
+//                    ->where(function ($query) {
+//                        $query->whereNull('deleted_by_user_id');
+//                    });
+//            })
+//                ->orWhere(function ($query) use ($frnId) {
+//                    $query->where('sender_id', $frnId)
+//                        ->where('recipent_id', auth()->user()->id)
+//                        ->where(function ($query) {
+//                            $query->whereNull('deleted_by_user_id');
+//                        });
+//                })->first();
+            $existingConversation = Conversation::withFriend($frnId)
+                ->visibleToUser(auth()->user()->id)
+                ->whereNull('deleted_by_user_id')
+                ->first();
 
             if ($existingConversation) {
                 // there is existing conversation where no one has deleted anything
-
                 // Create a new message
                 $existingConversation->last_time_message = now();
                 $existingConversation->save();
+                // Your code here
                 Message::create([
                     'conversation_id' => $existingConversation->id,
                     'user_id' => auth()->user()->id,
@@ -187,61 +217,46 @@ class ChatBox extends Component
                     'attachment_url' => $this->imageFolderName != null ? $this->imageFolderName : null,
                     'is_seen' => false,
                 ]);
+
                 // event(new Chat($frnId, auth()->user()->id, auth()->user()->first_name, $this->messageContent));
                 SendNewMessageJob::dispatch($frnId, auth()->user()->id, auth()->user()->first_name, $this->messageContent);
 
-
-
                 // Reset message input after sending
                 $this->messageContent = '';
-
-
                 // Refresh the chat to display the sent message
                 $this->dispatchBrowserEvent('rowChatToBottom');
                 $this->emit('refresh');
                 $this->refresh();
+                if($this->filepond != null){
+                    // if we have image attachment we are forcing to reload the whole page.
+                    $this->filepond = null;
+                    return redirect()->route('chat_body');
+                }
             } else {
-
-                // There is existing conversation but someone has deleted it create new conv id.
-                // $oldConv = Conversation::where(function ($query) use ($frnId) {
-                //     $query->where('sender_id', auth()->user()->id)
-                //         ->where('recipent_id', $frnId)
-                //         ->where(function ($query) {
-                //             $query->where('deleted_by_user_id','!=', null);
-                //         });
-                // })
-                // ->orWhere(function ($query) use ($frnId) {
-                //     $query->where('sender_id', $frnId)
-                //         ->where('recipent_id', auth()->user()->id)
-                //         ->where(function ($query) {
-                //             $query->where('deleted_by_user_id', '!=', null);
-                //         });
-                // })->first();
-                $oldConv = Conversation::where(function ($query) use ($frnId) {
-                    $query->where('sender_id', auth()->user()->id)
-                        ->where('recipent_id', $frnId)
-                        ->where('deleted_by_user_id', '!=', null)
-                        ->where('has_multiple_conversation', false);
-                })
-                    ->orWhere(function ($query) use ($frnId) {
-                        $query->where('sender_id', $frnId)
-                            ->where('recipent_id', auth()->user()->id)
-                            ->where('deleted_by_user_id', '!=', null)
-                            ->where('has_multiple_conversation', false);
-                    })
+//                $oldConv = Conversation::where(function ($query) use ($frnId) {
+//                    $query->where('sender_id', auth()->user()->id)
+//                        ->where('recipent_id', $frnId)
+//                        ->where('deleted_by_user_id', '!=', null)
+//                        ->where('has_multiple_conversation', false);
+//                })
+//                    ->orWhere(function ($query) use ($frnId) {
+//                        $query->where('sender_id', $frnId)
+//                            ->where('recipent_id', auth()->user()->id)
+//                            ->where('deleted_by_user_id', '!=', null)
+//                            ->where('has_multiple_conversation', false);
+//                    })
+//                    ->get();
+                $oldConversations = Conversation::withFriend($frnId)
+                    ->whereNotNull('deleted_by_user_id')
+                    ->where('has_multiple_conversation', false)
                     ->get();
 
-
-                // dd($oldConv);
-
-                if (count($oldConv) > 0) {
-                    foreach ($oldConv as $conv) {
-                        $conv->has_multiple_conversation = true;
-                        $conv->save();
+                if ($oldConversations->count() > 0) {
+                    foreach ($oldConversations as $oldConv) {
+                        $oldConv->has_multiple_conversation = true;
+                        $oldConv->save();
                     }
                 }
-                // $oldConv->has_multiple_conversation = true;
-                // $oldConv->save();
                 $conversation = Conversation::create([
                     'name' => 'Conversation between ' . auth()->user()->name . ' and ' . $this->friend->name,
                     // 'type' => 'private',
@@ -267,12 +282,18 @@ class ChatBox extends Component
 
                 // Reset message input after sending
                 $this->messageContent = '';
+                //$this->filepond = null;
 
                 // Refresh the chat to display the sent message
 
                 $this->dispatchBrowserEvent('rowChatToBottom');
                 $this->emit('refresh');
                 $this->refresh();
+                if($this->filepond != null){
+                    // if we have image attachment we are forcing to reload the whole page.
+                    $this->filepond = null;
+                    return redirect()->route('chat_body');
+                }
             }
         } else {
             // No conversation or New conversation
@@ -288,7 +309,7 @@ class ChatBox extends Component
             Message::create([
                 'conversation_id' => $conversation->id,
                 'user_id' => auth()->user()->id,
-                'content' => $this->imageName != null ? 'sent an attachment' : $this->messageContent,
+                'content' => $this->imageName != null ? 'sent a photo' : $this->messageContent,
                 'is_seen' => false,  // Assuming the message is not seen yet
                 'attachment_type' => $this->imageName != null ? 'photo' : null,
                 'attachment_filename' => $this->imageName != null ? $this->imageName : null,
@@ -305,6 +326,10 @@ class ChatBox extends Component
             $this->dispatchBrowserEvent('rowChatToBottom');
             $this->emit('refresh');
             $this->refresh();
+            if($this->filepond != null){
+                $this->filepond = null;
+                return redirect()->route('chat_body');
+            }
         }
     }
 
@@ -398,6 +423,8 @@ class ChatBox extends Component
             // Now Deleting the Old Temporary files from the folder.
             Storage::deleteDirectory('public/chatify/tmp/' . $tmp_file->folder);
             $tmp_file->delete();
+            // Emit a browser event to notify the front end to close the modal
+            $this->dispatchBrowserEvent('closeModal');
 
             // Now sending the new message by adding this image as attachment.
             $this->sendMessage($frnId);

@@ -1,34 +1,22 @@
 <?php
 
+use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\ForgetPasswordController;
 use App\Http\Middleware\Auth\CheckAccountStatus;
-use App\Jobs\EmailVerificationJob;
-use App\Models\User;
-use Illuminate\Support\Str;
-use App\Models\Conversation;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 // Roles And Permission Controller Namespace
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Auth\Events\PasswordReset;
 use App\Http\Middleware\Auth\VerifiedUser;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\RoleController;
 use App\Http\Controllers\Auth\UserController;
 use App\Http\Controllers\Auth\AdminController;
 
-use App\Http\Controllers\Auth\FriendController;
-use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Controllers\Auth\UserProfileController;
 use App\Http\Controllers\Auth\ConversationController;
 use App\Http\Middleware\Auth\RedirectIfEmailVerified;
-use App\Jobs\PasswordResetEmailJob;
-use App\Jobs\ResendEmailVerificationJob;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-
 
 use App\Http\Controllers\Auth\FilePondController;
 
@@ -159,9 +147,6 @@ Route::middleware(VerifiedUser::class)->group(function () { // for checking the 
 
         Route::group(['middleware' => ['role:user']], function () { // for checking the role is a normal user
 
-            // Route::middleware(VerifiedUser::class)->group(function () { // for checking the user is authenticated
-            // Route::middleware(CheckAccountStatus::class)->group(function () { // for checking whether the account is deactive or not.
-
             //Frontend user homepage route
             Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('userDashboard')->middleware('verified');
 
@@ -173,9 +158,6 @@ Route::middleware(VerifiedUser::class)->group(function () { // for checking the 
 
             Route::delete('/user/delete/{id}', [AuthController::class, 'deactiveUser'])->name('deactive_me');
 
-            // Route::controller(UserProfileController::class)->group(function(){
-
-            // });
             // User Profile Section
             Route::get('/user/profile', [UserProfileController::class, 'ShowUserProfile'])->name('userProfile')->middleware('verified');
             Route::post('/user/profile/', [UserProfileController::class, 'UpdateProfilePicture'])->name('updateProfilePicture')->middleware('verified');
@@ -197,7 +179,6 @@ Route::middleware(VerifiedUser::class)->group(function () { // for checking the 
 
             // Display chat of the specific friend or selected friend
             Route::get('/user/chat/{friend_id}', [ConversationController::class, 'setSelectedFriend'])->name('check_msg_status');
-            // Route::get('/test/chat/{friend_id}', [ConversationController::class, 'checkConversation']);
 
             /**
              *
@@ -210,9 +191,6 @@ Route::middleware(VerifiedUser::class)->group(function () { // for checking the 
             Route::post('/tmp-upload', [FilePondController::class, 'tempUpload']);
             Route::delete('/tmp-delete', [FilePondController::class, 'tempDelete']);
 
-
-
-
             // Frontend User Logout route
             Route::get('/logout', function () {
                 Auth::logout();
@@ -221,12 +199,12 @@ Route::middleware(VerifiedUser::class)->group(function () { // for checking the 
                 return redirect()->route('user_login');
             })->name('user_logout');
 
-            // Verified User Forget password route
-            Route::get('/forget-password', function () {
+            // Verified Auth User Forget password route
+            Route::get('/forget-my-password', function () {
                 // Log out the user first
                 Auth::logout();
                 // then show the view page
-                return view('auth.frontend.forget-password');
+                return redirect()->route('password.request');
             })->name('verified.forget.password');
         });
     });
@@ -239,25 +217,9 @@ Route::middleware(VerifiedUser::class)->group(function () { // for checking the 
  *
  */
 
-// Email Verification Path
-Route::get('/email/verify', function () {
-    return view('auth.frontend.verify-email');
-})->middleware(VerifiedUser::class, RedirectIfEmailVerified::class)->name('verification.notice');
-
-// Verifying the email hash
-Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-    $request->fulfill();
-    toastr()->success('Your email has been verified successfully!', 'Congratulations!');
-
-    return redirect('/dashboard')->with('status', 'Your email has been successfully verified! Welcome Chatify.');
-})->middleware(['auth', 'signed', RedirectIfEmailVerified::class])->name('verification.verify');
-
-// Resending Email Verification
-Route::post('/email/verification-notification', function (Request $request) {
-    ResendEmailVerificationJob::dispatch($request->user());
-    toastr()->success('Verification link has been sent!', 'Email Sent');
-    return back();
-})->middleware(['auth', 'throttle:3,1'])->name('verification.send');
+Route::get('/email/verify', [EmailVerificationController::class, 'showEmailVerificationPage'])->middleware(VerifiedUser::class, RedirectIfEmailVerified::class)->name('verification.notice');
+Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verifyEmailVerificationLink'])->middleware(['auth', 'signed', RedirectIfEmailVerified::class])->name('verification.verify');
+Route::post('/email/verification-notification', [EmailVerificationController::class, 'resendEmailVerificationLink'])->middleware(['auth', 'throttle:3,1'])->name('verification.send');
 
 
 /**
@@ -266,57 +228,10 @@ Route::post('/email/verification-notification', function (Request $request) {
  *
  */
 
-// Resetting Password
-Route::get('/forgot-password', function () {
-    return view('auth.frontend.forget-password');
-})->middleware('guest')->name('password.request');
-
-
-Route::post('/forgot-password', function (Request $request) {
-    $request->validate(['email' => 'required|email']);
-
-    PasswordResetEmailJob::dispatch($request->only('email'));
-    toastr()->success('Password reset link will be sent to your email!', 'Reset Link Sent');
-    return back()->with(['status' => 'Reset Link Sent Success!']);
-
-    // return back();
-})->middleware('guest')->name('password.email');
-
-Route::get('/reset-password/{token}', function (string $token) {
-    return view('auth.frontend.reset-password', ['token' => $token]);
-})->middleware('guest')->name('password.reset');
-
-
-
-Route::post('/reset-password', function (Request $request) {
-    $request->validate([
-        'token' => 'required',
-        'email' => 'required|email',
-        'password' => 'required|same:password_confirmation',
-        'password_confirmation' => 'required|same:password'
-    ]);
-
-    $status = Password::reset(
-        $request->only('email', 'password', 'password_confirmation', 'token'),
-        function (User $user, string $password) {
-            $user->forceFill([
-                'password' => Hash::make($password)
-            ])->setRememberToken(Str::random(60));
-
-            $user->save();
-
-            event(new PasswordReset($user));
-        }
-    );
-
-    if ($status == Password::PASSWORD_RESET) {
-        toastr()->success('Password has been changed!', 'Successfully Changed');
-        return redirect()->route('user_login')->with('status', __($status));
-    } else {
-        toastr()->error('Failed to change password!', 'Failed Change');
-        return back()->withErrors(['email' => [__($status)]]);
-    }
-})->middleware('guest')->name('password.update');
+Route::get('/forget-password', [ForgetPasswordController::class, 'showForgetPasswordForm'])->middleware('guest')->name('password.request');
+Route::post('/forget-password', [ForgetPasswordController::class, 'sendForgetPasswordLink'])->middleware('guest')->name('password.email');
+Route::get('/reset-password/{token}', [ForgetPasswordController::class, 'verifyForgetPasswordLink'])->middleware('guest')->name('password.reset');
+Route::post('/reset-password', [ForgetPasswordController::class, 'updateNewPassword'])->middleware('guest')->name('password.update');
 
 
 
@@ -328,8 +243,6 @@ Route::post('/reset-password', function (Request $request) {
  * Custom Error Handling (Fallback route)
  *
  */
-
-
 
 // Fallback route for Custom 404, 403 error
 Route::fallback(function ($request) {

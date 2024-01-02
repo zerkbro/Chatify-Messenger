@@ -55,7 +55,7 @@ class ChatList extends Component
             return [];
         }
 
-        $userId = auth()->user()->id;
+//        $userId = auth()->user()->id;
 
         // Performing search logic here based on searchTerm
         $userId = auth()->user()->id;

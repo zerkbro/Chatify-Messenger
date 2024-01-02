@@ -17,9 +17,11 @@ class OnlineStatusMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Checking If the User is Authenticated or Not.
         if (auth()->check()) {
+            // Each 2 minutes interval we are checking and updating using Laravel Cache.
             $userId = auth()->user()->id;
-            Cache::put('user-is-online-' . $userId, true, now()->addMinutes(2));
+
             User::where('id', $userId)->update(['is_online' => true, 'last_seen' => now()]);
         }
         return $next($request);

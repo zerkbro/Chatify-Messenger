@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +15,7 @@ class Conversation extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $dates = ['deleted_at'];
+    protected array $dates = ['deleted_at'];
     protected $fillable = [
         'name',
         'type',
@@ -23,36 +26,83 @@ class Conversation extends Model
         'has_multiple_conversation',
     ];
 
-    // public function users()
-    // {
-    //     return $this->belongsToMany(User::class, 'conversation_user', 'conversation_id', 'user_id')
-    //         ->withPivot('is_seen');
-    // }
-    public function users()
+    protected $casts = [
+        'has_multiple_conversation' => 'boolean',
+    ];
+
+    public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class);
     }
 
-    public function sender()
+    public function sender():  BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
     }
 
-    public function recipent()
+    public function recipent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recipent_id');
     }
 
-    public function messages()
+    public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'conversation_id');
     }
 
-    public function lastMessage()
+    public function lastMessage(): HasOne
     {
         return $this->hasOne(Message::class, 'conversation_id')
             ->orderByDesc('created_at')->latest();
     }
+
+    /**
+     * Test Code for scopeVisibleForUser
+     */
+    public function scopeVisibleToUser($query, $userId)
+    {
+        return $query->where(function ($query) use ($userId) {
+            // Include conversations initiated by the user
+            $query->where(function ($query) use ($userId) {
+                $query->where('sender_id', $userId)
+                    ->orWhere('recipent_id', $userId);
+            });
+            // Exclude conversations deleted by the user or not initiated by the user
+            $query->where(function ($query) use ($userId) {
+                $query->where('deleted_by_user_id', '!=', $userId)
+                    ->orWhereNull('deleted_by_user_id');
+            });
+        });
+    }
+
+    /**
+     * Test Code for scopeWithFriend
+     */
+    public function scopeWithFriend($query, $friendId)
+    {
+        return $query->where(function ($query) use ($friendId) {
+            $query->where('sender_id', $friendId)
+                ->orWhere('recipent_id', $friendId);
+        });
+    }
+
+    /**
+     * Test Code for deleted_by_user_id
+     */
+
+    public function isDeletedByUser($userId): bool
+    {
+        return $this->deleted_by_user_id === $userId;
+    }
+
+    /**
+     * Test Code for scopeWithUnreadMessagesCount
+     */
+    public function getUnreadMessagesCountAttribute()
+    {
+        return $this->messages()->notSeenReceived(auth()->id())->count();
+    }
+
 
     public function conversationDeletingUser(): BelongsTo
     {

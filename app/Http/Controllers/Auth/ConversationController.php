@@ -100,82 +100,26 @@ class ConversationController extends Controller
     public function recentMessage(){
 
 
-        // $lastConversations = Conversation::with(['lastMessage',])
-        //     ->where(function ($query) {
-        //         $query->where('sender_id', auth()->user()->id)
-        //             ->where(function ($query) {
-        //                 $query->whereNull('deleted_by_user_id')
-        //                     ->orWhere('deleted_by_user_id', '!=', auth()->user()->id);
-        //             });
-        //     })
-        //     ->orWhere(function ($query) {
-        //         $query->where('recipent_id', auth()->user()->id)
-        //             ->where(function ($query) {
-        //                 $query->whereNull('deleted_by_user_id')
-        //                     ->orWhere('deleted_by_user_id', '!=', auth()->user()->id);
-        //             });
-        //     })
-        //     ->where(function ($query) {
-        //         $query->where('has_multiple_conversation', false);
-        //             // ->orWhereNull('has_multiple_conversation');
-        //     })
-        //     ->get();
+        $latestConversations = Conversation::visibleToUser(auth()->id())
+            ->with('lastMessage', 'sender', 'recipent')
+            ->get();
 
-        // foreach ($latestConversations as $conversation) {
-        //     // Check if the conversation is deleted by the user
-        //     $isDeletedByUser = $conversation->deleted_by_user_id == auth()->user()->id;
-
-        //     if ($conversation->has_multiple_conversation) {
-        //         // If there are multiple conversations, show the last message of this conversation
-        //         // regardless of deletion by the user
-        //         $filteredConversations[] = $conversation;
-        //     } else {
-        //         // If there's only one conversation, show the last message only if it's not deleted by the user
-        //         if (!$isDeletedByUser) {
-        //             $filteredConversations[] = $conversation;
-        //         }
-        //     }
-        // }
-
-        $latestConversations = Conversation::where(function ($query) {
-            $query->where('sender_id', auth()->user()->id)
-                ->orWhere('recipent_id', auth()->user()->id);
-        })
-        ->with('lastMessage')
-        ->orderByDesc('last_time_message')
-        ->latest()
-        ->get();
-
-        $filteredConversations = [];
-
-        $friendIds = [];
-        foreach ($latestConversations as $conversation) {
-            $friendId = ($conversation->sender_id == auth()->user()->id) ? $conversation->recipent_id : $conversation->sender_id;
-
+        $filteredConversations = $latestConversations->filter(function ($conversation) {
             // Case 1: Check if the conversation is deleted by the user, don't show to the current user
-            if ($conversation->deleted_by_user_id == auth()->user()->id) {
-                continue;
+            if ($conversation->isDeletedByUser(auth()->id())) {
+                return false;
             }
 
             // Case 2: If there are multiple conversations, don't show the last message to anyone
             if ($conversation->has_multiple_conversation) {
-                continue;
+                return false;
             }
 
             // Case 3: Only show the last message if it's not deleted by the current user and no multiple conversation is true
-            if ($conversation->lastMessage && !$conversation->lastMessage->is_deleted && !$conversation->has_multiple_conversation) {
-                $filteredConversations[] = $conversation;
-                $friendIds[] = $friendId;
-            }
-        }
+            return $conversation->lastMessage && !$conversation->lastMessage->is_deleted && !$conversation->has_multiple_conversation;
+        });
 
         // Now $filteredConversations will contain the appropriate conversations to display
-
-        // dd($filteredConversations);
-
-
-        // return $lastConversations;
-        // return $latestConversations;
         return $filteredConversations;
     }
 
@@ -192,22 +136,15 @@ class ConversationController extends Controller
 
         if ($conversation) {
             // Check if the conversation is already soft deleted or deleted_by_user_id has value
-            // if ($conversation->deleted_by_user_id != null && $conversation->deleted_by_user_id != auth()->user()->id) {
             if ($conversation->has_multiple_conversation == true || $conversation->deleted_by_user_id != null && $conversation->deleted_by_user_id == $friend_id) {
                 // Permanently delete the conversation
-                $conversationsToDelete = Conversation::where(function($query) use ($conversation) {
-                    $query->where('sender_id', $conversation->sender_id)
-                          ->where('recipent_id', $conversation->recipent_id);
-                })
-                ->orWhere(function($query) use ($conversation) {
-                    $query->where('sender_id', $conversation->recipent_id)
-                          ->where('recipent_id', $conversation->sender_id);
-                })
-                ->where(function($query) use ($friend_id) {
-                    $query->where('deleted_by_user_id', $friend_id)
-                          ->orWhere('has_multiple_conversation', true);
-                })
-                ->get();
+                $conversationsToDelete = Conversation::whereIn('sender_id', [$conversation->sender_id, $conversation->recipent_id])
+                    ->whereIn('recipent_id', [$conversation->sender_id, $conversation->recipent_id])
+                    ->where(function ($query) use ($friend_id) {
+                        $query->whereIn('deleted_by_user_id', [$friend_id])
+                            ->orWhere('has_multiple_conversation', true);
+                    })
+                    ->get();
                 // Permanently delete all conversations between these users
                 if(count($conversationsToDelete)>0){
                     foreach ($conversationsToDelete as $conv) {
@@ -230,17 +167,13 @@ class ConversationController extends Controller
                 $conversation->save();
 
                 //if this $conversation is not deleted by any user but maybe user has previous conversations then
-                $conversationsToDelete = Conversation::where(function($query) use ($conversation) {
-                    $query->where('sender_id', $conversation->sender_id)
-                          ->where('recipent_id', $conversation->recipent_id);
-                })
-                ->orWhere(function($query) use ($conversation) {
-                    $query->where('sender_id', $conversation->recipent_id)
-                          ->where('recipent_id', $conversation->sender_id);
-                })
-                ->where('deleted_by_user_id', $friend_id)
-                ->get();
-
+                $conversationsToDelete = Conversation::whereIn('sender_id', [$conversation->sender_id, $conversation->recipent_id])
+                    ->whereIn('recipent_id', [$conversation->sender_id, $conversation->recipent_id])
+                    ->where(function ($query) use ($friend_id) {
+                        $query->whereIn('deleted_by_user_id', [$friend_id])
+                            ->orWhere('has_multiple_conversation', true);
+                    })
+                    ->get();
                 if(count($conversationsToDelete)>0){
                     foreach ($conversationsToDelete as $conv) {
                         if($conv->deleted_by_user_id == $friend_id){
