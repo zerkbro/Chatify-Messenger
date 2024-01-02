@@ -162,7 +162,7 @@
                                     title="">
                                         <h4>{{ $su->first_name . ' ' . $su->last_name }}</h4>
                                     </button>
-                                    <h6>Bio Here</h6>
+                                    <h6>{{ $su->user_bio!=null ? $su->user_bio : 'Bio Here' }}</h6>
                                 </div>
 
                                 <div class="card-footer row">
