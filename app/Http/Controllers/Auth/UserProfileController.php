@@ -136,6 +136,5 @@ class UserProfileController extends Controller
             ->get();
 
         return view('auth.frontend.user.friend.search_friends');
-        // return view('livewire.friend-searchbar');
     }
 }

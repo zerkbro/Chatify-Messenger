@@ -245,10 +245,6 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Conversation::class, 'recipent_id');
     }
 
-    // public function conversations(): BelongsToMany
-    // {
-    //     return $this->belongsToMany(Conversation::class);
-    // }
 
     public function conversations(): HasMany
     {

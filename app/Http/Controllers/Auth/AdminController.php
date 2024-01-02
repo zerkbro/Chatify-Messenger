@@ -130,17 +130,6 @@ class AdminController extends Controller
             $newAdmin->assignRole('admin');
         }
 
-        // // Retrieve the newly created course
-        // $newCourse = Course::find($course->course_id);
-
-        // // Store the course created activity logs
-        // Course_Logs::create([
-        //     'course_id' => $newCourse->course_id,
-        //     'action' => 'created',
-        //     'old_values' => null, // No old values for a new course
-        //     'new_values' => json_encode($newCourse->toArray())
-        // ]);
-
         return redirect()->route('show_admins')->with('success', 'New Admin Added Successfully!');
     }
 
@@ -157,10 +146,6 @@ class AdminController extends Controller
         $admin = User::findOrFail($admin_id);
         Validator::make($request->all(), [
             'name' => 'required',
-            // 'email' => 'required|email|unique:users',
-            // 'phone' => 'required|min:10',
-            // 'password' => 'required',
-            // 'profile_image' => 'required|image|mimes:jpeg,jpg,png|max:2048'
         ])->validate();
 
         // Compare the new input values with the old values

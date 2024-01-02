@@ -164,7 +164,7 @@
                                                 <form action="{{ route('suspend_this_user', ['user_id' => $alluser->id]) }}" method="post">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" onclick="return confirm('This feature is comming soon!')"
+                                                    <button type="submit" onclick="return confirm('If Proceed, this user will not be able to use the system anymore.')"
                                                             class="btn btn-danger float-start" > Ban
                                                         {{ $alluser->first_name }}</button>
                                                 </form>
